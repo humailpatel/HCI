@@ -4,7 +4,7 @@ from tkinter import messagebox
 import networkx as nx
 import matplotlib.pyplot as plt
 
-def display_file_contents(file_contents, all_variables, current_file):
+def odisplay_file_contents(file_contents, all_variables, current_file):
     root = tk.Tk()
     root.title(f"File Contents: {current_file}")
 
@@ -12,7 +12,7 @@ def display_file_contents(file_contents, all_variables, current_file):
     text.pack(expand=True, fill="both")
 
     def on_click(event, word):
-        return show_related_files(word, all_variables, current_file)
+        return oshow_related_files(word, all_variables, current_file)
 
     for i, line in enumerate(file_contents, 1):
         text.insert(f"{i}.0", f"{line}\n")
@@ -26,14 +26,14 @@ def display_file_contents(file_contents, all_variables, current_file):
     text.config(state="disabled")  # Make the text widget read-only
     root.mainloop()
 
-def show_related_files(variable, all_variables, current_file):
+def oshow_related_files(variable, all_variables, current_file):
     related_files = all_variables[variable]
     file_list = "\n".join([f"{path} (line {line})" for path, line in related_files])
     tk.messagebox.showinfo(title=f"Occurrences of '{variable}'", message=file_list)
 
-    create_and_show_graph(all_variables, current_file)
+    ocreate_and_show_graph(all_variables, current_file)
 
-def create_and_show_graph(all_variables, current_file):
+def ocreate_and_show_graph(all_variables, current_file):
     G = nx.DiGraph()
 
     # Add nodes for each file and edges for shared variables

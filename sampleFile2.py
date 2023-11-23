@@ -1,20 +1,24 @@
-def greet(name):
-    return f"Hello, {name}!"
+def initialize():
+    paymentCredential = "AMEX: £100"
+    return paymentCredential
 
-def calculate_sum(a, b):
-    return a + b
+def checkPaymentProcessor(paymentCredential):
+    if (paymentCredential.split()[0] == "AMEX"):
+        processAmex(paymentCredential)
+    else:
+        processVisa(paymentCredential)
 
-def print_message():
-    message = "This is a test message"
-    print(message)
+def processAmex(paymentCredential):
+    paymentCredential = paymentCredential + "0"
+    return paymentCredential
 
-def nested_function_example():
-    def inner_function(x):
-        return x * x
-    return inner_function(5)
+def processVisa(paymentCredential):
+    paymentCredential = paymentCredential + "0"
+    return paymentCredential
+
+def main():
+    paymentCredential = initialize()
+    checkPaymentProcessor(paymentCredential)
 
 if __name__ == "__main__":
-    print(greet("Alice"))
-    print("Sum of 3 and 4 is:", calculate_sum(3, 4))
-    print_message()
-    print("Result from nested function:", nested_function_example())
+    main()
