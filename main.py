@@ -9,33 +9,53 @@ def parse_python_file(file_path):
     with open(file_path, "r") as source:
         code = source.read()
         return ast.parse(code)
-    
+
 class VariableFlowAnalyzer(ast.NodeVisitor):
     def __init__(self, variable_name):
         self.variable_name = variable_name
         self.flow = []
         self.current_function = None
-        self.occurrence_counter = 0
 
     def visit_FunctionDef(self, node):
         self.current_function = node.name
         self.generic_visit(node)
         self.current_function = None
 
-    def process_variable_occurrence(self, lineno):
-        unique_occurrence = (self.current_function, lineno, self.occurrence_counter)
+    def process_variable_occurrence(self, lineno, conditional=False):
+        unique_occurrence = (self.current_function, lineno, conditional)
         self.flow.append(unique_occurrence)
-        self.occurrence_counter += 1
 
     def visit_Assign(self, node):
         if isinstance(node.targets[0], ast.Name) and node.targets[0].id == self.variable_name:
             self.process_variable_occurrence(node.lineno)
         self.generic_visit(node)
 
+    def visit_If(self, node):
+        self.generic_visit(node)
+        test_result = None
+
+        if isinstance(node.test, ast.Compare):
+            left = node.test.left.id if isinstance(node.test.left, ast.Name) else None
+            right = node.test.comparators[0].id if isinstance(node.test.comparators[0], ast.Name) else None
+
+            if left == self.variable_name or right == self.variable_name:
+                test_result = True
+            else:
+                test_result = False
+
+        for stmt in node.body:
+            if test_result is None or test_result:
+                self.visit(stmt)
+
+        for stmt in node.orelse:
+            if test_result is None or not test_result:
+                self.visit(stmt)
+
     def visit_Call(self, node):
-        for arg in node.args:
-            if isinstance(arg, ast.Name) and arg.id == self.variable_name:
-                self.process_variable_occurrence(node.lineno)
+        if isinstance(node.func, ast.Name):
+            called_function = node.func.id
+            conditional = self.variable_name in [arg.id for arg in node.args if isinstance(arg, ast.Name)]
+            self.process_variable_occurrence(node.lineno, conditional)
         self.generic_visit(node)
 
 def get_current_function(lineno, code):
@@ -88,15 +108,13 @@ def visualize_flow(flow, current_function):
     nx.draw(G, pos, with_labels=True, arrows=True, node_color=node_colors)
     plt.show()
 
-
-def get_node_color(func, current_function, func_map):
-    if func == current_function:
-        return 'green'  # Current function
-    elif list(func_map).index(func) < list(func_map).index(current_function):
-        return 'red'  # Previous functions
-    else:
-        return 'blue'  # Future functions
-
+def is_valid_variable_name(variable_name):
+    try:
+        # Attempt to parse the variable name as an ast.Name
+        ast.parse(variable_name, mode='eval')
+        return True
+    except SyntaxError:
+        return False
 
 def analyze_highlighted_variable():
     try:
@@ -123,14 +141,6 @@ def analyze_highlighted_variable():
     except Exception as e:
         print("Error:", e)
 
-def is_valid_variable_name(variable_name):
-    try:
-        # Attempt to parse the variable name as an ast.Name
-        ast.parse(variable_name, mode='eval')
-        return True
-    except SyntaxError:
-        return False
-
 def select_variable_and_visualize(file_path):
     global text, code
     root = tk.Tk()
@@ -138,7 +148,7 @@ def select_variable_and_visualize(file_path):
     text.pack(expand=True, fill='both')
 
     # Add a button to analyze the highlighted text
-    analyze_button = tk.Button(root, text="Analyse Variable Flow", command=analyze_highlighted_variable)
+    analyze_button = tk.Button(root, text="Analyze Variable Flow", command=analyze_highlighted_variable)
     analyze_button.pack()
 
     with open(file_path, 'r') as file:
