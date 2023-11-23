@@ -89,6 +89,7 @@ def visualize_flow(flow, current_function):
             func_map[func] = []
         func_map[func].append(lineno)
 
+    print(func_map)
     # Create node label map for the graph
     node_label_map = {func: f"{func}\nLines: {', '.join(map(str, lines))}" for func, lines in func_map.items()}
 
@@ -99,6 +100,7 @@ def visualize_flow(flow, current_function):
     # Add edges between nodes based on the flow
     prev_node_label = None
     for func, lineno, _, conditional_type in flow:
+        print(func, lineno, _, conditional_type)
         node_label = node_label_map[func]
 
         # Differentiate edges for conditional flows
