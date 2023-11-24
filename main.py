@@ -20,7 +20,7 @@ class RuntimeFlowTracer:
         self.last_lineno = None
         self.current_value = None
         self.line_group = []
-        self.tracing_active = False  # Added to control the start of tracing
+        self.tracing_active = True  # Start tracing immediately
 
     def trace_calls(self, frame, event, arg):
         lineno = frame.f_lineno
@@ -29,33 +29,28 @@ class RuntimeFlowTracer:
         if func_name not in self.defined_functions:
             return self.trace_calls
 
-        # Start tracing only when the variable of interest is encountered
-        if not self.tracing_active and self.variable_name in frame.f_locals:
-            self.tracing_active = True
+        if self.last_func != func_name:
+            if self.line_group:
+                self.flow.append((self.last_func, self.line_group, self.current_value))
+                self.line_group = []
+            self.last_func = func_name
+            self.current_value = None
 
-        if self.tracing_active:
-            if self.last_func != func_name:
-                if self.line_group:
-                    self.flow.append((self.last_func, self.line_group, self.current_value))
-                    self.line_group = []
-                self.last_func = func_name
-                self.current_value = None
+        if lineno not in self.line_group:
+            self.line_group.append(lineno)
 
-            if lineno not in self.line_group:
-                self.line_group.append(lineno)
+        self.last_lineno = lineno
 
-            self.last_lineno = lineno
-
-            if event == 'line' and self.variable_name in frame.f_locals:
-                current_value = frame.f_locals[self.variable_name]
-                self.current_value = current_value
+        if event == 'line' and self.variable_name in frame.f_locals:
+            current_value = frame.f_locals[self.variable_name]
+            self.current_value = current_value
 
         return self.trace_calls
-
 
     def finalize_flow(self):
         if self.line_group:
             self.flow.append((self.last_func, self.line_group, self.current_value))
+
 
 def execute_and_trace(file_content, variable_name, defined_functions):
     tracer = RuntimeFlowTracer(variable_name, defined_functions)
@@ -66,23 +61,37 @@ def execute_and_trace(file_content, variable_name, defined_functions):
     sys.settrace(None)
     return tracer.flow
 
-def visualize_flow(flow):
+def visualize_flow(flow, current_node=None):
+    print(flow)
     G = nx.DiGraph()
 
+    # Create nodes and edges for the graph
     prev_node_label = None
     for func, line_group, value in flow:
         line_range = f"{line_group[0]}-{line_group[-1]}" if len(line_group) > 1 else str(line_group[0])
-        node_label = f"{func} (Lines {line_range})\nVar Value: {value}"
-
-        if node_label not in G.nodes:
-            G.add_node(node_label)
-            if prev_node_label:
-                G.add_edge(prev_node_label, node_label)
-            prev_node_label = node_label
+        node_label = f"{func} (Lines {line_range})"
+        G.add_node(node_label)
+        if prev_node_label:
+            G.add_edge(prev_node_label, node_label)
+        prev_node_label = node_label
 
     pos = nx.spring_layout(G)
     plt.figure(figsize=(8, 6))
-    nx.draw_networkx(G, pos)
+
+    # Determine the color for each node
+    node_colors = []
+    found_current = False
+
+    for node in G.nodes:
+        if node == current_node:
+            node_colors.append('green')
+            found_current = True
+        elif not found_current:
+            node_colors.append('red')
+        else:
+            node_colors.append('blue')
+
+    nx.draw_networkx(G, pos, node_color=node_colors, with_labels=True, font_weight='bold')
     plt.show()
 
 def main():
@@ -108,7 +117,8 @@ def main():
                         word = text_widget.get(f"{line}.{char-1} wordstart", f"{line}.{char-1} wordend")
                         
                         flow = execute_and_trace(file_content, word, defined_functions)
-                        visualize_flow(flow)
+                        closest_func = find_closest_function(flow, line)
+                        visualize_flow(flow, current_node=closest_func)
                     except Exception as e:
                         print(f"Error: {e}")
 
@@ -121,6 +131,19 @@ def main():
     root.config(menu=menu_bar)
 
     root.mainloop()
+
+def find_closest_function(flow, line_number):
+    closest_func = None
+    min_distance = float('inf')
+    for func, line_group, _ in flow:
+        for line in line_group:
+            distance = abs(line - line_number)
+            if distance < min_distance:
+                min_distance = distance
+                line_range = f"{line_group[0]}-{line_group[-1]}" if len(line_group) > 1 else str(line_group[0])
+                closest_func = f"{func} (Lines {line_range})"
+    return closest_func
+
 
 if __name__ == "__main__":
     main()
