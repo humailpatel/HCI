@@ -61,9 +61,12 @@ def execute_and_trace(file_content, variable_name, defined_functions):
     sys.settrace(None)
     return tracer.flow
 
-def visualize_flow(flow, current_node=None):
+def visualize_flow(flow, variable_name, current_node=None):
     print(flow)
     G = nx.DiGraph()
+
+    # Count occurrences of the variable
+    variable_count = sum(value == variable_name for _, _, value in flow)
 
     # Create nodes and edges for the graph
     prev_node_label = None
@@ -75,13 +78,12 @@ def visualize_flow(flow, current_node=None):
             G.add_edge(prev_node_label, node_label)
         prev_node_label = node_label
 
-    pos = nx.spring_layout(G)
-    plt.figure(figsize=(8, 6))
+    pos = nx.spring_layout(G)  # You can try different layouts like circular_layout, random_layout, etc.
+    plt.figure(figsize=(12, 8))  # Adjust figure size
 
     # Determine the color for each node
     node_colors = []
     found_current = False
-
     for node in G.nodes:
         if node == current_node:
             node_colors.append('green')
@@ -91,8 +93,16 @@ def visualize_flow(flow, current_node=None):
         else:
             node_colors.append('blue')
 
-    nx.draw_networkx(G, pos, node_color=node_colors, with_labels=True, font_weight='bold')
+    nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=500, alpha=0.9)
+    nx.draw_networkx_edges(G, pos, edge_color='black', arrowstyle='->', arrowsize=20)
+    nx.draw_networkx_labels(G, pos, font_size=10, font_family='sans-serif')
+
+    # Custom title with variable name and count
+    plt.title(f'Tracing "{variable_name}"')
+    plt.axis('off')  # Turn off axis
     plt.show()
+
+
 
 def main():
     root = tk.Tk()
@@ -118,7 +128,7 @@ def main():
                         
                         flow = execute_and_trace(file_content, word, defined_functions)
                         closest_func = find_closest_function(flow, line)
-                        visualize_flow(flow, current_node=closest_func)
+                        visualize_flow(flow, variable_name=word, current_node=closest_func)
                     except Exception as e:
                         print(f"Error: {e}")
 
